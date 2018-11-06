@@ -30,36 +30,26 @@ import ca.polymtl.inf8480.tp1.shared.ServerInterface;
 import ca.polymtl.inf8480.tp1.shared.FilePair;
 
 public class Distributor {
-	// Liste d'operations a effectuer
-	ArrayList<FilePair> listOperations;
-	// Liste de reponses
-    ArrayList<Integer> results = null;
-    
+    // Liste d'operations a effectuer
+    ArrayList<FilePair> listOfOperations;
+    ArrayList<Integer> results;
 
-    public static void main(String[] args) 
-    {
-        String runningMode = "";
+    public static void main(String[] args) {
+        String security = "";
         String fileName = "";
 
-        if (args.length < 2) 
-        {
+        if (args.length < 2) {
             System.out.println("You must define filename and running mode in arguments");
             System.exit(-1);
         }
 
-        else 
-        {
+        else {
             fileName = args[0];
-            runningMode = args[1];
+            security = args[1];
         }
         Distributor distributor = new Distributor();
-        distributor.run(fileName, runningMode);
+        distributor.run(fileName, security);
     }
-
-    FakeServer localServer = null;
-    private final String FILE_DIRECTORY = "./files/";
-    private ServerInterface localServerStub = null;
-    private ServerInterface distantServerStub = null;
 
     public Distributor() {
         super();
@@ -88,21 +78,20 @@ public class Distributor {
 
     }
 
-
     private void run(String fileName, String runningMode) {
-		long startTime = System.nanoTime();
-			
-		// Lire le fichier des operations
-		readFile(fileName);
+        long startTime = System.currentTimeMillis();
+
+        // Lire le fichier des operations
+        readFile(fileName);
         // Executer le bon mode selon le parametre specifie
-        if(runningMode.equals("s")){
-			safeRun();
-		}
-		if(runningMode.equals("n")){
-			nonSafeRun();
-		}
-		// Calculer et afficher temps execution operation
-		System.out.println("Temps écoulé: " + (System.nanoTime() - startTime)  + " ns");
+        if (runningMode.equals("s")) {
+            safeRun();
+        }
+        if (runningMode.equals("n")) {
+            nonSafeRun();
+        }
+        // Calculer et afficher temps execution operation
+        System.out.println("Elapsed Time: " + (System.currentTimeMillis() - startTime) + " ms");
     }
 
 }

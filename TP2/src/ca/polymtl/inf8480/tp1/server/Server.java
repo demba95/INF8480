@@ -25,40 +25,48 @@ import java.io.FileInputStream;
 import java.util.*;
 import java.security.MessageDigestSpi;
 import java.security.MessageDigest;
-import java.util.Iterator;
-import java.util.List;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.UUID;
 
 import ca.polymtl.inf8480.tp1.shared.ProjectFile;
 import ca.polymtl.inf8480.tp1.shared.ServerInterface;
+import ca.polymtl.inf8480.tp1.shared.
 
 public class Server implements ServerInterface {
-	final String LOCKED = " Verrouillee par l'utilisateur ";
-	final String UNLOCKED = " Non verouillee \n ";
-	// attributs de la classe
-	ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
-	private final String FILE_DIRECTORY = "ServerDir/";
-	Map<String, ProjectFile> fileList = new HashMap<String, ProjectFile>();
+
+	private Operations operations_;
+	private Random uniqueId_; // pour assurer l'unicite
+	private int q_ = 0;
+	private int m_ = 0;
 
 	public static void main(String[] args) {
+		String port = "";
+		if (arg.length == 1) {
+			port = args[0];
+		} else if (arg.length > 1) {
+			System.out.println("Too many arguments. 0 or 1 expected");
+			System.exit(-1);
+		}
+
 		Server server = new Server();
-		server.run();
+		server.run(port);
 	}
 
 	public Server() {
 		super();
+		this.uniqueId = new Random();
 	}
 
-	private void run() {
+	private void run(String port) {
+		// same as provided in TP1 : Only add portNumber
+		portNumber = Integer.parseInt(port);
 		if (System.getSecurityManager() == null) {
 			System.setSecurityManager(new SecurityManager());
 		}
 
 		try {
-			ServerInterface stub = (ServerInterface) UnicastRemoteObject.exportObject(this, 0);
+			ServerInterface stub = (ServerInterface) UnicastRemoteObject.exportObject(this, portNumber);
 
-			Registry registry = LocateRegistry.getRegistry();
+			Registry registry = LocateRegistry.getRegistry(portNumber);
 			registry.rebind("server", stub);
 			System.out.println("Server ready.");
 		} catch (ConnectException e) {
@@ -68,210 +76,31 @@ public class Server implements ServerInterface {
 		} catch (Exception e) {
 			System.err.println("Erreur: " + e.getMessage());
 		}
+
+		this.operations_ = new Operations();
+
 	}
 
-	@Override
-	public String create(String filename) throws RemoteException {
-		String ERROR = filename + " already exists. Choose different name";
-		String SUCCESS = filename + " successfully created";
-		String result = "";
-
-		if (this.fileList.containsKey(filename)) {
-			result = ERROR;
-		}
-
-		else {
-			ProjectFile theFile = new ProjectFile(filename);
-			rwLock.writeLock().lock(); // verouiller
-			try {
-
-				ByteBuffer buffer = ByteBuffer.allocate(1024);
-				FileChannel fc = FileChannel.open(Paths.get(this.FILE_DIRECTORY + "/" + theFile.getFileName()),
-						StandardOpenOption.CREATE, StandardOpenOption.WRITE);
-				fc.write(buffer);
-				fc.close();
-				this.fileList.put(filename, theFile);
-
-			} catch (IOException e) {
-			} finally {
-				rwLock.writeLock().unlock(); // deverouiller
-			}
-			result = SUCCESS;
-		}
-		return result;
+	public double getRefusalRate(int nbOperations, int serverCapacity) {
+		double refusalRatio = (nbOperations - serverCapacity) / (4 * serverCapacity);
+		return refusalRatio * 100;
 	}
 
-	@Override
-	public String listFiles() throws RemoteException {
+	public int getNbBadResults(int nbTasks, int m) {
 
-		String theList = "";
-		Collection<?> setKeys = this.fileList.keySet();
-		for (Object key : setKeys) {
-			this.rwLock.readLock().lock();
-			try {
-				theList += "* " + this.fileList.get(key).getFileName();
-				boolean isFileLocked = this.fileList.get(key).isLocked();
-				if (!isFileLocked == true) {
-					theList += UNLOCKED;
-				} else {
-					theList += LOCKED + this.fileList.get(key).getUser() + "\n";
-				}
-			} finally {
-				this.rwLock.readLock().unlock();
-			}
-		}
-
-		theList += this.fileList.size() + " fichier(s)\n";
-		return theList;
+		return (nbTasks * m) / 100;
 	}
 
-	@Override
-	public ProjectFile getFile(String filename, String checkSum) throws RemoteException {
-		ProjectFile theFile = null;
-		if (this.fileList.containsKey(filename)) {
-			this.rwLock.readLock().lock();
-			// variable temp necessaire pour eviter un Null Pointer Exception
-			ProjectFile temp = this.fileList.get(filename);
-			if ((checkSum.equals("-1"))
-					|| (temp.getFileName().equals(filename) && !(temp.getChecksum().equals(checkSum)))) {
-				try {
-					byte[] content = this.getFileSize(temp.getFileName());
-					String contentToStr = new String(content);
-					temp.setFileContent(contentToStr);
-					theFile = temp;
-				} catch (Exception e) {
-				}
-			}
-			this.rwLock.readLock().unlock();
+	public void showResults(Map<Task, List<Integer>> res) {
 
+		int r = 0;
+		for (List<Integer> i : res.values()) {
+			for (int j = 0; j < i.size(); j++) {
+				r += i.get(j);
+				r = r % 4000;
+			}
 		}
-		return theFile;
-	}
-
-	// Ref: https://stackoverflow.com/questions/858980/file-to-byte-in-java
-	public byte[] getFileSize(String filename) {
-
-		byte[] fileSize = null;
-		try {
-			fileSize = Files.readAllBytes(Paths.get(this.FILE_DIRECTORY + filename));
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		return fileSize;
-	}
-
-	@Override
-	public List<ProjectFile> syncLocalDirectory() {
-		List<ProjectFile> newList = new ArrayList<ProjectFile>();
-		for (ProjectFile file : this.fileList.values()) {
-			byte[] content = this.getFileSize(file.getFileName());
-			String contentToStr = new String(content);
-			file.setFileContent(contentToStr);
-			newList.add(file);
-		}
-
-		return newList;
-	}
-
-	@Override
-	public String lock(String filename, String checksum) throws IOException { // checksum will use client ID
-		ProjectFile file = new ProjectFile();
-		String lockerId = "";
-
-		//if file exists
-		if(this.fileList.containsKey(filename)){
-			this.rwLock.readLock().lock();
-			try {
-				file = this.fileList.get(filename);
-			} finally {
-				this.rwLock.readLock().unlock();
-			}
-
-			//if file exists and is locked
-			if(file.isLocked()){
-				this.rwLock.readLock().lock();
-				try {			
-					lockerId += "";;
-				}
-				finally {
-					this.rwLock.readLock().unlock();
-				}	
-			}
-						
-			//if file exists and is unlocked
-			else{	
-				this.rwLock.writeLock().lock();
-				try {			
-					file.lockfile(checksum);
-					lockerId += file.getUser();;
-				}
-				finally {
-					this.rwLock.writeLock().unlock();
-				}					
-			}
-			
-		}
-		else
-		{
-			lockerId = " File does not exist ";
-		}
-		System.out.println("lockerId " + lockerId );
-		return lockerId;
-	}
-
-	public String push(String filename, String content) throws RemoteException {
-		String ERROR = "Operation refusee : vous devez  verrouiller d'abord  le fichier";
-		String SUCCESS = "Fichier envoye au serveur";
-		String result = " ";
-		try {
-			ProjectFile file = this.fileList.get(filename);
-			if (file.isLocked()) {
-				Files.write(Paths.get(this.FILE_DIRECTORY + filename), content.getBytes(), StandardOpenOption.WRITE);
-				file.unlockFile();
-				result += SUCCESS;
-			}
-			else {
-				result += ERROR;
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
-		return result;
-	}
-
-	public String connect(String login, String password) throws RemoteException {
-		String SUCCESS = "Enregistrement reuissi";
-		String ALREADY_EXISTS = "Cet usager existe deja";
-
-		if (this.verify (login, password))
-			return ALREADY_EXISTS;
-		String infos=login+"->"+password+"";
-		try{
-		     Files.write(Paths.get("ServerDir/logins.txt"), infos.getBytes(), StandardOpenOption.WRITE);
-		}catch(Exception e){ }
-
-		return SUCCESS;
-	}
-
-	public boolean verify(String login, String password) throws RemoteException {
-		List<String> userData;
-		boolean isLegit = false;	
-		String filename = "ServerDir/logins.txt";		
-
-		try (BufferedReader buffer = Files.newBufferedReader(Paths.get(filename))) {
-			userData = 	buffer.lines().collect(Collectors.toList());
-			Iterator<String> it = userData.iterator();
-		while (it.hasNext()) {
-			String[] data = it.next().split("->"); // ignorer le separateur
-			if (data[0].equals(login) && data[1].equals(password)) {
-				isLegit = true;
-			}
-		}	
-		}catch(Exception e){}
-		return isLegit;
-
-		
+		System.out.println(r);
 	}
 
 }
