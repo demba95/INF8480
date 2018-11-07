@@ -10,8 +10,8 @@ Reference: https://stackoverflow.com/questions/4777622/creating-a-list-of-pairs-
 
 */
 public class FileContent implements Serializable {
-    private String operation;
-    private int operande;
+    private final String operation;
+    private final int operande;
 
     public FileContent(String l, int r) {
         this.operation = l;

@@ -27,16 +27,40 @@ import java.security.MessageDigestSpi;
 import java.security.MessageDigest;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import ca.polymtl.inf8480.tp1.shared.ProjectFile;
+import ca.polymtl.inf8480.tp1.shared.FileContent;
 import ca.polymtl.inf8480.tp1.shared.ServerInterface;
-import ca.polymtl.inf8480.tp1.shared.
+import ca.polymtl.inf8480.tp1.shared.Operations;
 
 public class Server implements ServerInterface {
 
 	private Operations operations_;
-	private Random uniqueId_; // pour assurer l'unicite
-	private int q_ = 0;
-	private int m_ = 0;
+	private Random random = new Random(); // a random number generator object
+	private int q_ = 0; // work capacity
+	private double m_ = 0; // tendance a retourner de faux resultats
+
+	public Operations getOperations_() {
+		return this.operations_;
+	}
+
+	public void setOperations_(Operations operations_) {
+		this.operations_ = operations_;
+	}
+
+	public int getWorkCapacity() {
+		return this.q_;
+	}
+
+	public void setWorkCapacity(int q) {
+		this.q_ = q;
+	}
+
+	public double getMaliciousNess() {
+		return this.m_;
+	}
+
+	public void setMaliciousNess(double m) {
+		this.m_ = m;
+	}
 
 	public static void main(String[] args) {
 		String port = "";
@@ -53,7 +77,6 @@ public class Server implements ServerInterface {
 
 	public Server() {
 		super();
-		this.uniqueId = new Random();
 	}
 
 	private void run(String port) {
@@ -86,21 +109,36 @@ public class Server implements ServerInterface {
 		return refusalRatio * 100;
 	}
 
-	public int getNbBadResults(int nbTasks, int m) {
+	@Override
+	public ArrayList<Integer> processOperations(ArrayList<FileContent> listOperations) throws RemoteException {
+		int arraySize = listOperations.size();
+		double chanceToDefect = this.getRefusalRate(arraySize, this.q_);
 
-		return (nbTasks * m) / 100;
-	}
-
-	public void showResults(Map<Task, List<Integer>> res) {
-
-		int r = 0;
-		for (List<Integer> i : res.values()) {
-			for (int j = 0; j < i.size(); j++) {
-				r += i.get(j);
-				r = r % 4000;
-			}
+		// if listOperations is null or refusalRate too High return null: refuse
+		// operations
+		if (listOperations != null || chanceToDefect > 20.0) {
+			return null;
 		}
-		System.out.println(r);
+		ArrayList<Integer> opResults = new ArrayList<Integer>();
+		for (FileContent var : listOperations) {
+			if (Math.abs(this.m_) > 0.001 && random.nextDouble() <= this.m) {
+				int wrongResult = random.nextInt() % 4000;
+				opResults.add(wrongResult);
+			} else {
+				switch (var.getOperation()) {
+				case "pell":
+					opResults.add(this.operations_.pell(var.getOperande()) % 4000);
+					break;
+
+				case "prime":
+					opResults.add(this.operations_.prime(var.getOperande()) % 4000);
+					break;
+				}
+			}
+
+		}
+
+		return opResults;
 	}
 
 }

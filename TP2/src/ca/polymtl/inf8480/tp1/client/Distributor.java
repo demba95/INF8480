@@ -27,12 +27,11 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 
 import ca.polymtl.inf8480.tp1.shared.ServerInterface;
-import ca.polymtl.inf8480.tp1.shared.FilePair;
+import ca.polymtl.inf8480.tp1.shared.FileContent;
 
 public class Distributor {
-    // Liste d'operations a effectuer
-    ArrayList<FilePair> listOfOperations;
-    ArrayList<Integer> results;
+    ArrayList<FileContent> listOfOperations;
+    ArrayList<Integer> operationResults;
 
     public static void main(String[] args) {
         String security = "";
@@ -66,7 +65,19 @@ public class Distributor {
         }
     }
 
-    public void readFile(String fileName) {
+    public void readOperationsFile(String fileName) {
+        try {
+            BufferedReader br = new BufferedReader(new FileReader(fileName));
+            for (String task; (task = br.readLine()) != null;) {
+                String[] chaine = task.split(" ");
+                FileContent theTask = new FileContent(chaine[0], (int) Integer.parseInt(chaine[1]));
+                listOfOperations.add(theTask);
+            }
+        } catch (FileNotFoundException e) {
+            System.err.println("Error opening file: " + e.getMessage());
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
 
     }
 
