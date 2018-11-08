@@ -36,7 +36,7 @@ public class Server implements ServerInterface {
 	private Operations operations_;
 	private Random random = new Random(); // a random number generator object
 	private int q_ = 0; // work capacity
-	private double m_ = 0; // tendance a retourner de faux resultats
+	private int m_ = 0; // tendance a retourner de faux resultats
 
 	public Operations getOperations_() {
 		return this.operations_;
@@ -50,23 +50,23 @@ public class Server implements ServerInterface {
 		return this.q_;
 	}
 
-	public void setWorkCapacity(int q) {
+	public void setWorkCapacity(int q) throws RemoteException {
 		this.q_ = q;
 	}
 
-	public double getMaliciousNess() {
-		return this.m_;
-	}
+	// public int getMaliciousNess() {
+	// return this.m_;
+	// }
 
-	public void setMaliciousNess(double m) {
+	public void setMaliciousNess(int m) throws RemoteException {
 		this.m_ = m;
 	}
 
 	public static void main(String[] args) {
 		String port = "";
-		if (arg.length == 1) {
+		if (args.length == 1) {
 			port = args[0];
-		} else if (arg.length > 1) {
+		} else if (args.length > 1) {
 			System.out.println("Too many arguments. 0 or 1 expected");
 			System.exit(-1);
 		}
@@ -81,7 +81,7 @@ public class Server implements ServerInterface {
 
 	private void run(String port) {
 		// same as provided in TP1 : Only add portNumber
-		portNumber = Integer.parseInt(port);
+		int portNumber = (int) Integer.parseInt(port);
 		if (System.getSecurityManager() == null) {
 			System.setSecurityManager(new SecurityManager());
 		}
@@ -121,10 +121,12 @@ public class Server implements ServerInterface {
 		}
 		ArrayList<Integer> opResults = new ArrayList<Integer>();
 		for (FileContent var : listOperations) {
-			if (Math.abs(this.m_) > 0.001 && random.nextDouble() <= this.m) {
+			if (this.m_ > 0 && random.nextInt() <= this.m_) {
 				int wrongResult = random.nextInt() % 4000;
 				opResults.add(wrongResult);
-			} else {
+			}
+
+			else {
 				switch (var.getOperation()) {
 				case "pell":
 					opResults.add(this.operations_.pell(var.getOperande()) % 4000);
