@@ -9,7 +9,7 @@ public class Configurations implements Serializable {
     private int q_;
 
     public int getPortNumber() {
-        return this.portNumber;
+        return this.portNumber_;
     }
 
     public void setPortNumber(int portNumber) {
@@ -25,7 +25,7 @@ public class Configurations implements Serializable {
     }
 
     public int getMode() {
-        return this.mode;
+        return this.mode_;
     }
 
     public void setMode_(int mode) {
@@ -48,7 +48,11 @@ public class Configurations implements Serializable {
     }
 
     public Configurations() {
-        Configurations(null, 0, 0, 0);
+        this.serverIp_ = null;
+        this.portNumber_ = 0;
+        this.mode_ = 0;
+        this.q_ = 0;
+        // Configurations("", 0, 0, 0);
     }
 
 }
