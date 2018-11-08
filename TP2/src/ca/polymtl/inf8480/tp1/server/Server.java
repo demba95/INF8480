@@ -54,10 +54,6 @@ public class Server implements ServerInterface {
 		this.q_ = q;
 	}
 
-	// public int getMaliciousNess() {
-	// return this.m_;
-	// }
-
 	public void setMaliciousNess(int m) throws RemoteException {
 		this.m_ = m;
 	}
