@@ -30,71 +30,74 @@ import ca.polymtl.inf8480.tp1.shared.ServerInterface;
 import ca.polymtl.inf8480.tp1.shared.Configurations;
 import ca.polymtl.inf8480.tp1.shared.FileContent;
 
-//Refs: http://tutorials.jenkov.com/java-concurrency/creating-and-starting-threads.html
-//http://www.java2novice.com/java_thread_examples/implementing_runnable/
-//plus simple methode pour gerer les threads
-public class RunnableThread implements Runnable {
-    public ArrayList<FileContent> listCalculs_;
-    public int calculResults = 0;
-    private int nOpsEach_ = 5;
-    public int count_ = 0;
-    private ServerInterface stubServer_;
-
-    public RunnableThread(ArrayList<FileContent> liste, int ops, ServerInterface stubs) {
-        this.listCalculs_ = liste;
-        this.stubServer_ = stubs;
-        this.count_ = ops;
-    }
-
-    public void run() {
-
-        int nbOperations = this.listCalculs_.size(); // get number of calculs to send
-
-        while (nbOperations != 0) {
-            ArrayList<FileContent> data = new ArrayList<FileContent>(); // data sent to server
-            for (int i = 0; i < this.nOpsEach_; i++) {
-                if (i < nbOperations()) {
-                    data.add(this.Taches.get(i));
-                }
-            }
-            // get results
-            ArrayList<Integer> theResults = null;
-            try {
-                theResults = this.stubServer_.processOperations(data); // calculer les operations
-            } catch (Exception e) {
-                this.calculResults = -1;
-                System.out.println("Error: " + e.getMessage());
-                return;
-            }
-
-            checkResults(data, theResults);
-        }
-    }
-
-    private void checkResults(ArrayList<FileContent> data, ArrayList<Integer> myResults) {
-        if (myResults == null) {
-            // cannot reduce
-            this.nOpsEach_--;
-        } else if (myResults != null) {
-            // On est capable de traiter encore plus de taches par block (peut-etre)
-            this.nOpsEach_++;
-
-            for (Integer each : myResults) {
-                this.calculResults = (this.calculResults + each) % 4000;
-            }
-            this.listCalculs_.removeAll(data); // remove selected data from what to send
-        }
-    }
-}
-
 public class Distributor {
     ArrayList<FileContent> listOfOperations;
 
     // private ServerInterface[] listOfServersStubs = new ServerInterface[4]; // 4
     // servers stubs because 4 is the maxNumber
     // of servers used in this work
-    private ArrayList<Configurations> listOfServersStubs;// stub Servers;
-    ArrayList<Configurations> connectedServers;// connected Servers
+    private ArrayList<ServerInterface> listOfServersStubs;// stub Servers;
+    private ArrayList<Configurations> connectedServers;// connected Servers
+
+    public final String serverConfigFile = "config";
+
+    // Refs:
+    // http://tutorials.jenkov.com/java-concurrency/creating-and-starting-threads.html
+    // http://www.java2novice.com/java_thread_examples/implementing_runnable/
+    // plus simple methode pour gerer les threads
+    public class RunnableThread implements Runnable {
+        public ArrayList<FileContent> listCalculs_;
+        public int calculResults = 0;
+        private int nOpsEach_ = 5;
+        public int count_ = 0;
+        private ServerInterface stubServer_;
+
+        public RunnableThread(ArrayList<FileContent> liste, int ops, ServerInterface stubs) {
+            this.listCalculs_ = liste;
+            this.stubServer_ = stubs;
+            this.count_ = ops;
+        }
+
+        public void run() {
+
+            int nbOperations = this.listCalculs_.size(); // get number of calculs to send
+
+            while (nbOperations != 0) {
+                ArrayList<FileContent> data = new ArrayList<FileContent>(); // data sent to server
+                for (int i = 0; i < this.nOpsEach_; i++) {
+                    if (i < nbOperations) {
+                        data.add(this.listCalculs_.get(i));
+                    }
+                }
+                // get results
+                ArrayList<Integer> theResults = null;
+                try {
+                    theResults = this.stubServer_.processOperations(data); // calculer les operations
+                } catch (Exception e) {
+                    this.calculResults = -1;
+                    System.out.println("Error: " + e.getMessage());
+                    return;
+                }
+
+                checkResults(data, theResults);
+            }
+        }
+
+        private void checkResults(ArrayList<FileContent> data, ArrayList<Integer> myResults) {
+            if (myResults == null) {
+                // cannot reduce
+                this.nOpsEach_--;
+            } else if (myResults != null) {
+                // On est capable de traiter encore plus de taches par block (peut-etre)
+                this.nOpsEach_++;
+
+                for (Integer each : myResults) {
+                    this.calculResults = (this.calculResults + each) % 4000;
+                }
+                this.listCalculs_.removeAll(data); // remove selected data from what to send
+            }
+        }
+    }
 
     public static void main(String[] args) {
         String security = "";
@@ -115,28 +118,66 @@ public class Distributor {
 
     public Distributor() {
         super();
+        connectedServers = new ArrayList<Configurations>();
+        listOfServersStubs = new ArrayList<ServerInterface>();
 
         if (System.getSecurityManager() == null) {
             System.setSecurityManager(new SecurityManager());
         }
-
-        localServer = new FakeServer();
-        localServerStub = loadServerStub("127.0.0.1");
-
-        if (distantServerHostname != null) {
-            distantServerStub = loadServerStub(distantServerHostname);
+        // Lire fichier config pour obtenir les infos sur les serveurs
+        readServersConfigurations(serverConfigFile);
+        for (int counter = 0; counter < connectedServers.size(); counter++) {
+            ServerInterface rmiServerStub = loadServerStub(connectedServers.get(counter));
+            listOfServersStubs.add(rmiServerStub);
+            try {
+                rmiServerStub.setWorkCapacity(connectedServers.get(counter).getQ());
+                rmiServerStub.setWorkCapacity(connectedServers.get(counter).getMode());
+            } catch (RemoteException e) {
+                System.out.println("Erreur set Q: " + e.getMessage());
+            }
         }
+
+        // if (System.getSecurityManager() == null) {
+        // System.setSecurityManager(new SecurityManager());
+        // }
+
+        // localServer = new FakeServer();
+        // localServerStub = loadServerStub("127.0.0.1");
+
+        // if (distantServerHostname != null) {
+        // distantServerStub = loadServerStub(distantServerHostname);
+        // }
+    }
+
+    private ServerInterface loadServerStub(Configurations config) {
+        ServerInterface stub = null;
+
+        try {
+            Registry registry = LocateRegistry.getRegistry(config.getServerIp(), config.getPortNumber());
+            stub = (ServerInterface) registry.lookup("server");
+        } catch (NotBoundException e) {
+            System.out.println("Erreur: Le nom '" + e.getMessage() + "' n'est pas défini dans le registre.");
+        } catch (AccessException e) {
+            System.out.println("Erreur: " + e.getMessage());
+        } catch (RemoteException e) {
+            System.out.println("Erreur: " + e.getMessage());
+        }
+
+        return stub;
     }
 
     public void readServersConfigurations(String fileName) {
         try {
+            FileReader in = new FileReader(fileName); // Ref:
+                                                      // https://stackoverflow.com/questions/16104616/using-bufferedreader-to-read-text-file
             connectedServers.clear();
-            BufferedReader br = new BufferedReader(fileName);
+            BufferedReader br = new BufferedReader(in);
+            String titles = br.readLine(); // line to be ignored
             for (String task; (task = br.readLine()) != null;) {
                 String[] chaine = task.split("\t"); // divise ligne en 4 params
                 String serverAddress = chaine[0];
                 int portNumber = (int) Integer.parseInt(chaine[1]);
-                String mode = chaine[2];
+                int mode = (int) Integer.parseInt(chaine[2]);
                 int capacity = (int) Integer.parseInt(chaine[3]);
                 connectedServers.add(new Configurations(serverAddress, mode, portNumber, capacity));
             }
@@ -180,7 +221,7 @@ public class Distributor {
             simpleThreads.clear();
             // Use a thread for each server
             for (ServerInterface stubServer : listOfServersStubs) {
-                ArrayList<Pair> opTasks = new ArrayList<Pair>();
+                ArrayList<FileContent> opTasks = new ArrayList<FileContent>();
                 int offset = 0;
                 if (j == nbConnectedServers && nbConnectedServers != 1) {
                     offset = listOfOperations.size() % nbConnectedServers;
@@ -188,7 +229,7 @@ public class Distributor {
                 for (; i < (nbTacheUnit * j) + offset; i++) {
                     opTasks.add(listOfOperations.get(i));
                 }
-                threadServeur threadClass = new threadServeur(opTasks, stub, j - 1);
+                RunnableThread threadClass = new RunnableThread(opTasks, j - 1, stubServer);
                 runnableThreads.add(threadClass);
                 Thread thread = new Thread(threadClass);
                 simpleThreads.add(thread);
@@ -198,7 +239,7 @@ public class Distributor {
             listOfOperations.clear();
 
             try {
-                results = commuteCalculResults(simpleThreads, runnableThreads);
+                results = commuteCalculResults(simpleThreads, runnableThreads, remaining);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -224,14 +265,15 @@ public class Distributor {
 
     }
 
-    public int commuteCalculResults(ArrayList<Thread> threadList, ArrayList<RunnableThread> myRunnable) {
+    public int commuteCalculResults(ArrayList<Thread> threadList, ArrayList<RunnableThread> myRunnable,
+            boolean remainingTasks) throws InterruptedException {
         int k = 0;
         int calculResult = 0;
         for (Thread thread : threadList) {
             thread.join();
             // Si un serveur a crash on repartit ses taches avec les autres serveurs
-            if (myRunnable.get(k).getResult() == -1) {
-                remaining = true;
+            if (myRunnable.get(k).calculResults == -1) {
+                remainingTasks = true;
                 this.listOfOperations.addAll(myRunnable.get(k).listCalculs_);
                 this.listOfServersStubs.remove(myRunnable.get(k).count_);
             }
@@ -252,7 +294,7 @@ public class Distributor {
         long startTime = System.currentTimeMillis();
 
         // Lire le fichier des operations
-        readFile(fileName);
+        readOperationsFile(fileName);
         // Executer le bon mode selon le parametre specifie
         if (runningMode.equals("s")) {
             safeRun();
