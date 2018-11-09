@@ -15,8 +15,4 @@ public interface ServerInterface extends Remote {
     void setWorkCapacity(int q) throws RemoteException; // set q
 
     void setMaliciousNess(int m) throws RemoteException; // set m
-    // public ArrayList<Integer>
-    // processOperations(List<AbstractMap.SimpleEntry<String, Integer>>
-    // listOperations)
-    // throws RemoteException;
 }

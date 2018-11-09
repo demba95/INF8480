@@ -39,7 +39,7 @@ public class Distributor {
     private ArrayList<ServerInterface> listOfServersStubs;// stub Servers;
     private ArrayList<Configurations> connectedServers;// connected Servers
 
-    public final String serverConfigFile = "config";
+    public final String SERVER_CONFIG_FILE = "./config";
 
     // Refs:
     // http://tutorials.jenkov.com/java-concurrency/creating-and-starting-threads.html
@@ -104,7 +104,7 @@ public class Distributor {
         String fileName = "";
 
         if (args.length < 2) {
-            System.out.println("You must define filename and running mode in arguments");
+            System.out.println("You must define filename and running mode  ( secure or not)in arguments");
             System.exit(-1);
         }
 
@@ -125,28 +125,17 @@ public class Distributor {
             System.setSecurityManager(new SecurityManager());
         }
         // Lire fichier config pour obtenir les infos sur les serveurs
-        readServersConfigurations(serverConfigFile);
+        readServersConfigurations(SERVER_CONFIG_FILE);
         for (int counter = 0; counter < connectedServers.size(); counter++) {
             ServerInterface rmiServerStub = loadServerStub(connectedServers.get(counter));
             listOfServersStubs.add(rmiServerStub);
             try {
-                rmiServerStub.setWorkCapacity(connectedServers.get(counter).getQ());
-                rmiServerStub.setWorkCapacity(connectedServers.get(counter).getMode());
+                rmiServerStub.setWorkCapacity(connectedServers.get(counter).getCapacity());
+                //rmiServerStub.setWorkCapacity(connectedServers.get(counter).getMode());
             } catch (RemoteException e) {
                 System.out.println("Erreur set Q: " + e.getMessage());
             }
         }
-
-        // if (System.getSecurityManager() == null) {
-        // System.setSecurityManager(new SecurityManager());
-        // }
-
-        // localServer = new FakeServer();
-        // localServerStub = loadServerStub("127.0.0.1");
-
-        // if (distantServerHostname != null) {
-        // distantServerStub = loadServerStub(distantServerHostname);
-        // }
     }
 
     private ServerInterface loadServerStub(Configurations config) {
@@ -174,12 +163,12 @@ public class Distributor {
             BufferedReader br = new BufferedReader(in);
             String titles = br.readLine(); // line to be ignored
             for (String task; (task = br.readLine()) != null;) {
-                String[] chaine = task.split("\t"); // divise ligne en 4 params
-                String serverAddress = chaine[0];
+                String[] chaine = task.split("\t"); // divise ligne en 3 params
                 int portNumber = (int) Integer.parseInt(chaine[1]);
-                int mode = (int) Integer.parseInt(chaine[2]);
+                int maliciousT = (int) Integer.parseInt(chaine[2]);
                 int capacity = (int) Integer.parseInt(chaine[3]);
-                connectedServers.add(new Configurations(serverAddress, mode, portNumber, capacity));
+                Configurations config = new Configurations(m, portNumber, capacity);
+                connectedServers.add(new Server(portNumber, mode, capacity));
             }
             br.close();
         } catch (Exception e) {

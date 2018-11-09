@@ -27,67 +27,70 @@ import java.security.MessageDigestSpi;
 import java.security.MessageDigest;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import ca.polymtl.inf8480.tp1.shared.Configurations;
 import ca.polymtl.inf8480.tp1.shared.FileContent;
 import ca.polymtl.inf8480.tp1.shared.ServerInterface;
 import ca.polymtl.inf8480.tp1.shared.Operations;
 
 public class Server implements ServerInterface {
+	public final String LOCALHOST = "127.0.0.1";
 
 	private Operations operations_;
-	private Random random = new Random(); // a random number generator object
-	private int q_ = 0; // work capacity
-	private int m_ = 0; // tendance a retourner de faux resultats
+	private Random random = new Random(); // random number generator
+	private int capacity_; // work capacity
+	private int maliciousness_; // tendance a retourner de faux resultats entre 0 et 100
+	private String serverId_;
+	private int portNumber_;
 
-	public Operations getOperations_() {
-		return this.operations_;
-	}
-
-	public void setOperations_(Operations operations_) {
-		this.operations_ = operations_;
-	}
-
-	public int getWorkCapacity() {
-		return this.q_;
-	}
+	Configurations myConfig;
 
 	public void setWorkCapacity(int q) throws RemoteException {
-		this.q_ = q;
+		this.capacity_ = q;
 	}
 
 	public void setMaliciousNess(int m) throws RemoteException {
-		this.m_ = m;
+		this.maliciousness_ = m;
 	}
 
 	public static void main(String[] args) {
-		String port = "";
-		if (args.length == 1) {
-			port = args[0];
-		} else if (args.length > 1) {
-			System.out.println("Too many arguments. 0 or 1 expected");
-			System.exit(-1);
+		int port, capacity, maliciousness;
+		if(args.length == 3) 
+		{
+			// String id = args[0];
+			port = Integer.parseInt(args[0]);
+			capacity = Integer.parseInt(args[1]);
+			maliciousness = Integer.parseInt(args[2]);
+
 		}
-
-		Server server = new Server();
-		server.run(port);
+		else
+		{
+			System.out.println("You should enter: port, workCapacity, maliciousness");
+			return;
+		}
+		Server server = new Server(port, maliciousness, capacity);
+		server.run();
 	}
 
-	public Server() {
+	public Server(int port, int capacity, int maliciousness)  {
 		super();
+		this.myConfig.setPortNumber(port);
+		this.myConfig.setQ(capacity);
+		this.myConfig.setMaliciousness(maliciousness);
+		this.myConfig.setServerIp(LOCALHOST);
+
 	}
 
-	private void run(String port) {
-		// same as provided in TP1 : Only add portNumber
-		int portNumber = (int) Integer.parseInt(port);
+	private void run() {
+		// same as provided in TP1
 		if (System.getSecurityManager() == null) {
 			System.setSecurityManager(new SecurityManager());
 		}
 
 		try {
-			ServerInterface stub = (ServerInterface) UnicastRemoteObject.exportObject(this, portNumber);
-
-			Registry registry = LocateRegistry.getRegistry(portNumber);
+			ServerInterface stub = (ServerInterface) UnicastRemoteObject.exportObject(this, 5020);
+			Registry registry = LocateRegistry.getRegistry(this.portNumber_);
 			registry.rebind("server", stub);
-			System.out.println("Server ready.");
+			System.out.println("Server ready on port" + this.portNumber_ + "...");
 		} catch (ConnectException e) {
 			System.err.println("Impossible de se connecter au registre RMI. Est-ce que rmiregistry est lancé ?");
 			System.err.println();
@@ -108,16 +111,16 @@ public class Server implements ServerInterface {
 	@Override
 	public ArrayList<Integer> processOperations(ArrayList<FileContent> listOperations) throws RemoteException {
 		int arraySize = listOperations.size();
-		double chanceToDefect = this.getRefusalRate(arraySize, this.q_);
+		double chanceToDefect = this.getRefusalRate(arraySize, this.capacity_);
 
-		// if listOperations is null or refusalRate too High return null: refuse
+		// if listOperations is null or refusalRate too High (>25)return null: refuse
 		// operations
-		if (listOperations != null || chanceToDefect > 20.0) {
+		if (/*listOperations == null || */chanceToDefect > 25.0) {
 			return null;
 		}
 		ArrayList<Integer> opResults = new ArrayList<Integer>();
 		for (FileContent var : listOperations) {
-			if (this.m_ > 0 && random.nextInt() <= this.m_) {
+			if (this.maliciousness_ > 0 && random.nextInt() <= this.maliciousness_) {
 				int wrongResult = random.nextInt() % 4000;
 				opResults.add(wrongResult);
 			}

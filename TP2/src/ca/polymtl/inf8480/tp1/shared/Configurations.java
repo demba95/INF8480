@@ -5,7 +5,7 @@ import java.io.Serializable;
 public class Configurations implements Serializable {
     private int portNumber_;
     private String serverIp_;
-    private int mode_;
+    private int m_;
     private int q_;
 
     public int getPortNumber() {
@@ -24,35 +24,35 @@ public class Configurations implements Serializable {
         this.serverIp_ = serverIp;
     }
 
-    public int getMode() {
-        return this.mode_;
+    public int getMaliciousness() {
+        return this.m_;
     }
 
-    public void setMode_(int mode) {
-        this.mode_ = mode;
+    public void setMaliciousness(int m) {
+        this.m_ = m;
     }
 
-    public int getQ() {
+    public int getCapacity() {
         return this.q_;
     }
 
-    public void setQ(int q) {
+    public void setCapacity(int q) {
         this.q_ = q;
     }
 
-    public Configurations(String serverIp, int mode, int portNumber, int q) {
-        this.serverIp_ = serverIp;
+    public Configurations(int portNumber, int m, int q) {
+        this.serverIp_ = "127.0.0.1";
         this.portNumber_ = portNumber;
-        this.mode_ = mode;
+        this.m_ = m;
         this.q_ = q;
     }
 
-    public Configurations() {
-        this.serverIp_ = null;
-        this.portNumber_ = 0;
-        this.mode_ = 0;
-        this.q_ = 0;
-        // Configurations("", 0, 0, 0);
-    }
+    // public Configurations() {
+    //     this.serverIp_ = null;
+    //     this.portNumber_ = 0;
+    //     this.mode_ = 0;
+    //     this.q_ = 0;
+    //     Configurations("127.0.0.1", 0, 0, 0);
+    // }
 
 }
