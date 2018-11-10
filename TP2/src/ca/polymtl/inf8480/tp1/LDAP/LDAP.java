@@ -50,7 +50,7 @@ public class LDAP extends UnicastRemoteObject implements LDAPInterface, Remote {
         try {
             LDAP proxy = new LDAP();
             LocateRegistry.createRegistry(LDAP.PORT);
-            Naming.rebind(PROTOCOL + LDAP.ADDR + "->" + LDAP.PORT + "/auth", proxy);
+            Naming.rebind("rmi://"  + LDAP.ADDR + ":" + LDAP.PORT + "/auth", proxy);
         } catch (Exception e) {
             e.printStackTrace();
         }

@@ -34,14 +34,14 @@ public class Distributor {
     // private ServerInterface[] listOfServersStubs = new ServerInterface[4]; // 4
     // servers stubs because 4 is the maxNumber
     // of servers used in this work
-    private ArrayList<ServerInterface> listOfServersStubs = new ArrayList<ServerInterface>();// stub Servers;
-    private ArrayList<Server> connectedServers = new ArrayList<Server>(); // connected Servers
+    private ArrayList<ServerInterface> listOfServersStubs;
+    private ArrayList<Server> connectedServers;
 
     private Pair<String, String> clientId_;
     LDAPInterface service;
 
     public static final String SERVER_CONFIG_FILE = "./config";
-    public static final String ADDRESS = "localhost";
+    public static final String ADDRESS = "127.0.0.1";
     public static final String RMIPROTOCOL = "rmi://";
     public static final String ENDPOINT = "/auth";
     public static final int LDAP_PORT = 5050;
@@ -149,23 +149,28 @@ public class Distributor {
         super();
     }
 
-    public void readServersConfigurations(String fileName) {
+    public void readServersConfigurations() {
         // file format: Port Capacity(q) Malicious(m)
         try {
             connectedServers.clear(); // reset server list
-            InputStream in = new FileInputStream(fileName);
+            InputStream in = new FileInputStream(SERVER_CONFIG_FILE);
             InputStreamReader inRead = new InputStreamReader(in);
-            BufferedReader br = new BufferedReader(inRead);
-
-            // String titles = br.readLine(); // line to be ignored for titles
-            for (String task; (task = br.readLine()) != null;) {
+            BufferedReader br = new BufferedReader(inRead);  
+            String ligne1 = br.readLine(); // ignore first line         
+            String task;
+            while ((task = br.readLine()) != null) 
+            {
+                System.out.println(" serveurs " + task);
                 String[] chaine = task.split("\t"); // divise ligne en 3 params separe par tabulation
                 int portNumber = (int) Integer.parseInt(chaine[0]);
                 int capacity = (int) Integer.parseInt(chaine[1]);
                 int maliciousT = (int) Integer.parseInt(chaine[2]);
 
                 Server curServer = new Server(portNumber, capacity, maliciousT);
+
+                System.out.println("capacity " + curServer.getCapacity());
                 connectedServers.add(curServer);
+                System.out.println("Nombre de serveurs " + connectedServers.size());
             }
             br.close();
             System.out.println("Nombre de serveurs " + connectedServers.size());
@@ -175,13 +180,20 @@ public class Distributor {
     }
 
     public void readOperationsFile(String fileName) {
+        listOfOperations = new ArrayList<FileContent>();
         try {
-            BufferedReader br = new BufferedReader(new FileReader(fileName));
-            for (String task; (task = br.readLine()) != null;) {
+            String filePath = "./" + fileName;
+            BufferedReader br = new BufferedReader(new FileReader(filePath));
+            String task;
+            
+            while((task = br.readLine()) != null)
+            {
                 String[] chaine = task.split(" ");
-                FileContent theTask = new FileContent(chaine[0], (int) Integer.parseInt(chaine[1]));
+                int op = (int) Integer.parseInt(chaine[1]);        
+                FileContent theTask = new FileContent(chaine[0], op);
                 listOfOperations.add(theTask);
             }
+            
             br.close();
         } catch (FileNotFoundException e) {
             System.err.println("Error opening file: " + e.getMessage());
@@ -196,10 +208,10 @@ public class Distributor {
         ArrayList<RunnableThread> runnableThreads = new ArrayList<RunnableThread>();
         ArrayList<Thread> simpleThreads = new ArrayList<Thread>();
         int nbConnectedServers = listOfServersStubs.size();
-        System.out.println("Nb connected = " + nbConnectedServers);
-        System.out.println("Nb Operations = " + listOfOperations.size());
+        System.out.println("Nb connected stubs = " + nbConnectedServers);
+        System.out.println("Nb connected NO stubs = " + connectedServers.size());
 
-        int nbTacheUnit = listOfOperations.size() / nbConnectedServers; // nb de taches par serveur
+        int nbTacheUnit = listOfOperations.size() / 2; // nb de taches par serveur
         int results = 0;
 
         while (remaining) {
@@ -265,13 +277,18 @@ public class Distributor {
     }
 
     private void run(String fileName, String runningMode, Pair<String, String> client) {
+
+        listOfServersStubs = new ArrayList<ServerInterface>();// stub Servers;
+        connectedServers = new ArrayList<Server>(); // connected Servers
         long startTime = System.currentTimeMillis();
 
         if (System.getSecurityManager() == null) {
             System.setSecurityManager(new SecurityManager());
         }
+
+
         // Lire fichier config pour obtenir les infos sur les serveurs
-        readServersConfigurations(SERVER_CONFIG_FILE);
+        readServersConfigurations();
 
         // this.service = loadLDAPStub();
         try {
@@ -282,8 +299,8 @@ public class Distributor {
         }
 
         try {
-            for (int counter = 0; counter < connectedServers.size(); counter++) {
-                ServerInterface rmiServerStub = loadServerStub(connectedServers.get(counter));
+            for (int i = 0; i < connectedServers.size(); i++) {
+                ServerInterface rmiServerStub = loadServerStub(connectedServers.get(i));
                 listOfServersStubs.add(rmiServerStub);
             }
         } catch (Exception e) {
@@ -308,7 +325,7 @@ public class Distributor {
         try {
             System.setSecurityManager(new SecurityManager());
             // Ref: https://coderanch.com/t/209255/java/RMI-Naming-rebind
-            stub = (LDAPInterface) Naming.lookup(RMIPROTOCOL + ADDRESS + ":" + LDAP_PORT + ENDPOINT);
+            stub = (LDAPInterface) Naming.lookup("rmi://" + ADDRESS + ":" + LDAP_PORT + "/auth");
             // Registry registry = LocateRegistry.getRegistry(config.getIpAddress(),
             // config.getPortNumber());
         } catch (NotBoundException e) {

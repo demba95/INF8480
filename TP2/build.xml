@@ -17,6 +17,7 @@
 		<delete file="server.jar" />
 		<delete file="client.jar" />
 		<delete file="shared.jar" />
+		<delete file="ldap.jar" />
 	</target>
 	<target depends="init" name="build-class">
 		<javac debug="true" debuglevel="${debuglevel}" destdir="bin" includeantruntime="false">
@@ -28,5 +29,7 @@
 		<jar destfile="shared.jar" basedir="bin" includes="ca/polymtl/inf8480/tp1/shared/**" update="false" />
 		<jar destfile="server.jar" basedir="bin" includes="ca/polymtl/inf8480/tp1/server/**" update="false" />
 		<jar destfile="client.jar" basedir="bin" includes="ca/polymtl/inf8480/tp1/client/**" update="false" />
+		<jar destfile="ldap.jar" basedir="bin" includes="ca/polymtl/inf8480/tp1/LDAP/**" update="false" />
+
 	</target>
 </project>

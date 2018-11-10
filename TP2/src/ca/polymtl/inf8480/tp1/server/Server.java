@@ -6,7 +6,10 @@ import java.util.stream.Collectors;
 import java.nio.file.*;
 import java.io.RandomAccessFile;
 import java.rmi.ConnectException;
+import java.rmi.RMISecurityManager;
+import java.rmi.Naming;
 import java.rmi.RemoteException;
+import java.rmi.Remote;
 import java.io.IOException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -28,12 +31,12 @@ import java.security.MessageDigestSpi;
 import java.security.MessageDigest;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-// import ca.polymtl.inf8480.tp1.shared.Configurations;
+
 import ca.polymtl.inf8480.tp1.shared.FileContent;
 import ca.polymtl.inf8480.tp1.shared.ServerInterface;
 import ca.polymtl.inf8480.tp1.shared.Operations;
 
-public class Server implements ServerInterface {
+public class Server implements ServerInterface, Remote {
 	public final String LOCALHOST = "127.0.0.1";
 	public final String SERVER_FILE = "./config";
 
@@ -66,7 +69,6 @@ public class Server implements ServerInterface {
 	public static void main(String[] args) {
 		int port, capacity, maliciousness;
 		if (args.length == 3) {
-			// String id = args[0];
 			port = Integer.parseInt(args[0]);
 			capacity = Integer.parseInt(args[1]);
 			maliciousness = Integer.parseInt(args[2]);
@@ -81,10 +83,6 @@ public class Server implements ServerInterface {
 
 	public Server(int port, int capacity, int maliciousness) {
 		super();
-		// this.myConfig.setPortNumber(port);
-		// this.myConfig.setCapacity(capacity);
-		// this.myConfig.setMaliciousness(maliciousness);
-		// this.myConfig.setServerIp(LOCALHOST);
 		this.portNumber_ = port;
 		this.capacity_ = capacity;
 		this.maliciousness_ = maliciousness;
@@ -97,10 +95,10 @@ public class Server implements ServerInterface {
 		if (System.getSecurityManager() == null) {
 			System.setSecurityManager(new SecurityManager());
 		}
-		writeServerToFile(server);
+		
 
 		try {
-			ServerInterface stub = (ServerInterface) UnicastRemoteObject.exportObject(this, 5030);
+			ServerInterface stub = (ServerInterface) UnicastRemoteObject.exportObject(this, 5049);
 			Registry registry = LocateRegistry.getRegistry(server.getPortNumber());
 			registry.rebind("server", stub);
 			System.out.println("Server ready on port " + server.getPortNumber());
@@ -111,6 +109,8 @@ public class Server implements ServerInterface {
 		} catch (Exception e) {
 			System.err.println("Erreur: " + e.getMessage());
 		}
+
+		writeServerToFile(server);
 
 		this.operations_ = new Operations();
 
@@ -142,7 +142,7 @@ public class Server implements ServerInterface {
 		int arraySize = listOperations.size();
 		double chanceToDefect = this.getRefusalRate(arraySize, this.capacity_);
 
-		// if listOperations is null or refusalRate too High (>25)return null: refuse
+		// if listOperations is null or refusalRate too High (>25%)return null: refuse
 		// operations
 		if (listOperations == null || chanceToDefect > 25.0) {
 			return null;
@@ -170,5 +170,15 @@ public class Server implements ServerInterface {
 
 		return opResults;
 	}
+
+    public void publishObject(Server server) {
+        System.setSecurityManager(new RMISecurityManager());
+        try {
+            LocateRegistry.createRegistry(server.getPortNumber());
+            Naming.rebind("rmi://127.0.0.1:" + server.getPortNumber() + "/server", server);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
 }
