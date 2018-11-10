@@ -11,8 +11,4 @@ import ca.polymtl.inf8480.tp1.shared.FileContent;
 
 public interface ServerInterface extends Remote {
     public ArrayList<Integer> processOperations(ArrayList<FileContent> listOperations) throws RemoteException;
-
-    void setWorkCapacity(int q) throws RemoteException; // set q
-
-    void setMaliciousNess(int m) throws RemoteException; // set m
 }

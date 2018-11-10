@@ -22,7 +22,7 @@ import java.rmi.registry.Registry;
 
 import ca.polymtl.inf8480.tp1.shared.ServerInterface;
 import ca.polymtl.inf8480.tp1.server.Server;
-import ca.polymtl.inf8480.tp1.shared.Configurations;
+// import ca.polymtl.inf8480.tp1.shared.Configurations;
 import ca.polymtl.inf8480.tp1.shared.FileContent;
 
 public class Distributor {

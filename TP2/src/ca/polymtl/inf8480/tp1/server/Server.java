@@ -28,7 +28,7 @@ import java.security.MessageDigestSpi;
 import java.security.MessageDigest;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import ca.polymtl.inf8480.tp1.shared.Configurations;
+// import ca.polymtl.inf8480.tp1.shared.Configurations;
 import ca.polymtl.inf8480.tp1.shared.FileContent;
 import ca.polymtl.inf8480.tp1.shared.ServerInterface;
 import ca.polymtl.inf8480.tp1.shared.Operations;
@@ -62,16 +62,6 @@ public class Server implements ServerInterface {
 	public int getPortNumber() {
 		return this.portNumber_;
 	}
-
-	// Configurations myConfig;
-
-	// public void setWorkCapacity(int q) throws RemoteException {
-	// this.capacity_ = q;
-	// }
-
-	// public void setMaliciousNess(int m) throws RemoteException {
-	// this.maliciousness_ = m;
-	// }
 
 	public static void main(String[] args) {
 		int port, capacity, maliciousness;
