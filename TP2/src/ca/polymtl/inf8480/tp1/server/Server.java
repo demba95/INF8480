@@ -18,6 +18,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.io.FileWriter;
 import java.io.FileReader;
 import java.io.InputStream;
@@ -34,63 +35,85 @@ import ca.polymtl.inf8480.tp1.shared.Operations;
 
 public class Server implements ServerInterface {
 	public final String LOCALHOST = "127.0.0.1";
+	public final String SERVER_FILE = "./config";
 
 	private Operations operations_;
 	private Random random = new Random(); // random number generator
 	private int capacity_; // work capacity
+
+	public int getCapacity() {
+		return this.capacity_;
+	}
+
 	private int maliciousness_; // tendance a retourner de faux resultats entre 0 et 100
-	private String serverId_;
+
+	public int getMaliciousness() {
+		return this.maliciousness_;
+	}
+
+	private String ipAddress_;
+
+	public String getIpAddress() {
+		return this.ipAddress_;
+	}
+
 	private int portNumber_;
 
-	Configurations myConfig;
-
-	public void setWorkCapacity(int q) throws RemoteException {
-		this.capacity_ = q;
+	public int getPortNumber() {
+		return this.portNumber_;
 	}
 
-	public void setMaliciousNess(int m) throws RemoteException {
-		this.maliciousness_ = m;
-	}
+	// Configurations myConfig;
+
+	// public void setWorkCapacity(int q) throws RemoteException {
+	// this.capacity_ = q;
+	// }
+
+	// public void setMaliciousNess(int m) throws RemoteException {
+	// this.maliciousness_ = m;
+	// }
 
 	public static void main(String[] args) {
 		int port, capacity, maliciousness;
-		if(args.length == 3) 
-		{
+		if (args.length == 3) {
 			// String id = args[0];
 			port = Integer.parseInt(args[0]);
 			capacity = Integer.parseInt(args[1]);
 			maliciousness = Integer.parseInt(args[2]);
 
-		}
-		else
-		{
+		} else {
 			System.out.println("You should enter: port, workCapacity, maliciousness");
 			return;
 		}
-		Server server = new Server(port, maliciousness, capacity);
-		server.run();
+		Server curServer = new Server(port, capacity, maliciousness);
+		curServer.run(curServer);
 	}
 
-	public Server(int port, int capacity, int maliciousness)  {
+	public Server(int port, int capacity, int maliciousness) {
 		super();
-		this.myConfig.setPortNumber(port);
-		this.myConfig.setQ(capacity);
-		this.myConfig.setMaliciousness(maliciousness);
-		this.myConfig.setServerIp(LOCALHOST);
+		// this.myConfig.setPortNumber(port);
+		// this.myConfig.setCapacity(capacity);
+		// this.myConfig.setMaliciousness(maliciousness);
+		// this.myConfig.setServerIp(LOCALHOST);
+		this.portNumber_ = port;
+		this.capacity_ = capacity;
+		this.maliciousness_ = maliciousness;
+		this.ipAddress_ = LOCALHOST;
 
 	}
 
-	private void run() {
+	private void run(Server server) {
 		// same as provided in TP1
 		if (System.getSecurityManager() == null) {
 			System.setSecurityManager(new SecurityManager());
 		}
+		writeServerToFile(server);
 
 		try {
-			ServerInterface stub = (ServerInterface) UnicastRemoteObject.exportObject(this, 5020);
-			Registry registry = LocateRegistry.getRegistry(this.portNumber_);
+			ServerInterface stub = (ServerInterface) UnicastRemoteObject.exportObject(this, 5030);
+			Registry registry = LocateRegistry.getRegistry(server.getPortNumber());
 			registry.rebind("server", stub);
-			System.out.println("Server ready on port" + this.portNumber_ + "...");
+			System.out.println("Server ready on port" + server.getPortNumber() + "...");
 		} catch (ConnectException e) {
 			System.err.println("Impossible de se connecter au registre RMI. Est-ce que rmiregistry est lancé ?");
 			System.err.println();
@@ -100,6 +123,22 @@ public class Server implements ServerInterface {
 		}
 
 		this.operations_ = new Operations();
+
+	}
+
+	public void writeServerToFile(Server server) {
+		try {
+			String currentConfig = server.getPortNumber() + "\t" + server.getCapacity() + "\t"
+					+ server.getMaliciousness();
+			BufferedReader br = Files.newBufferedReader(Paths.get(SERVER_FILE));
+			if (!br.lines().collect(Collectors.toList()).contains(currentConfig)) {
+				PrintWriter writer = new PrintWriter(new FileWriter(SERVER_FILE, true));
+				writer.println(currentConfig);
+				writer.close();
+			}
+		} catch (Exception e) {
+			System.out.println(e.toString());
+		}
 
 	}
 
@@ -115,7 +154,7 @@ public class Server implements ServerInterface {
 
 		// if listOperations is null or refusalRate too High (>25)return null: refuse
 		// operations
-		if (/*listOperations == null || */chanceToDefect > 25.0) {
+		if (listOperations == null || chanceToDefect > 25.0) {
 			return null;
 		}
 		ArrayList<Integer> opResults = new ArrayList<Integer>();

@@ -1,7 +1,5 @@
 package ca.polymtl.inf8480.tp1.client;
 
-import java.io.File;
-import java.io.IOException;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -13,12 +11,8 @@ import java.nio.file.*;
 import java.rmi.AccessException;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
-import java.io.FileReader;
-import java.io.BufferedWriter;
-import java.io.BufferedReader;
 import java.security.MessageDigestSpi;
 import java.security.MessageDigest;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Iterator;
@@ -27,6 +21,7 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 
 import ca.polymtl.inf8480.tp1.shared.ServerInterface;
+import ca.polymtl.inf8480.tp1.server.Server;
 import ca.polymtl.inf8480.tp1.shared.Configurations;
 import ca.polymtl.inf8480.tp1.shared.FileContent;
 
@@ -37,7 +32,7 @@ public class Distributor {
     // servers stubs because 4 is the maxNumber
     // of servers used in this work
     private ArrayList<ServerInterface> listOfServersStubs;// stub Servers;
-    private ArrayList<Configurations> connectedServers;// connected Servers
+    private ArrayList<Server> connectedServers;// connected Servers
 
     public final String SERVER_CONFIG_FILE = "./config";
 
@@ -118,31 +113,16 @@ public class Distributor {
 
     public Distributor() {
         super();
-        connectedServers = new ArrayList<Configurations>();
+        connectedServers = new ArrayList<Server>();
         listOfServersStubs = new ArrayList<ServerInterface>();
-
-        if (System.getSecurityManager() == null) {
-            System.setSecurityManager(new SecurityManager());
-        }
-        // Lire fichier config pour obtenir les infos sur les serveurs
-        readServersConfigurations(SERVER_CONFIG_FILE);
-        for (int counter = 0; counter < connectedServers.size(); counter++) {
-            ServerInterface rmiServerStub = loadServerStub(connectedServers.get(counter));
-            listOfServersStubs.add(rmiServerStub);
-            try {
-                rmiServerStub.setWorkCapacity(connectedServers.get(counter).getCapacity());
-                //rmiServerStub.setWorkCapacity(connectedServers.get(counter).getMode());
-            } catch (RemoteException e) {
-                System.out.println("Erreur set Q: " + e.getMessage());
-            }
-        }
     }
 
-    private ServerInterface loadServerStub(Configurations config) {
+    private ServerInterface loadServerStub(Server config) {
         ServerInterface stub = null;
 
         try {
-            Registry registry = LocateRegistry.getRegistry(config.getServerIp(), config.getPortNumber());
+            Registry registry = LocateRegistry.getRegistry(config.getIpAddress(), config.getPortNumber());
+            // Ref: https://coderanch.com/t/209255/java/RMI-Naming-rebind
             stub = (ServerInterface) registry.lookup("server");
         } catch (NotBoundException e) {
             System.out.println("Erreur: Le nom '" + e.getMessage() + "' n'est pas défini dans le registre.");
@@ -156,21 +136,24 @@ public class Distributor {
     }
 
     public void readServersConfigurations(String fileName) {
+        // file format: Port Capacity(q) Malicious(m)
         try {
-            FileReader in = new FileReader(fileName); // Ref:
-                                                      // https://stackoverflow.com/questions/16104616/using-bufferedreader-to-read-text-file
-            connectedServers.clear();
-            BufferedReader br = new BufferedReader(in);
-            String titles = br.readLine(); // line to be ignored
+            InputStream in = new FileInputStream(fileName);
+            InputStreamReader inRead = new InputStreamReader(in);
+            BufferedReader br = new BufferedReader(inRead);
+            connectedServers.clear(); // reset server list
+            // String titles = br.readLine(); // line to be ignored for titles
             for (String task; (task = br.readLine()) != null;) {
-                String[] chaine = task.split("\t"); // divise ligne en 3 params
-                int portNumber = (int) Integer.parseInt(chaine[1]);
+                String[] chaine = task.split("\t"); // divise ligne en 3 params separe par tabulation
+                int portNumber = (int) Integer.parseInt(chaine[0]);
+                int capacity = (int) Integer.parseInt(chaine[1]);
                 int maliciousT = (int) Integer.parseInt(chaine[2]);
-                int capacity = (int) Integer.parseInt(chaine[3]);
-                Configurations config = new Configurations(m, portNumber, capacity);
-                connectedServers.add(new Server(portNumber, mode, capacity));
+
+                // Configurations config = new Configurations(m, portNumber, capacity);
+                connectedServers.add(new Server(portNumber, capacity, maliciousT));
             }
             br.close();
+            System.out.println("Nombre de serveurs" + connectedServers.size());
         } catch (Exception e) {
             System.out.println(e.toString());
         }
@@ -236,22 +219,6 @@ public class Distributor {
 
         System.out.println("Final result = " + results);
 
-        // int k = 0;
-        // for (Thread thread : simpleThreads) {
-        // thread.join();
-        // // Si un serveur a crash on repartit ses taches avec les autres serveurs
-        // if (runnableThreads.get(k).getResult() == -1) {
-        // remaining = true;
-        // listOfOperations.addAll(runnableThreads.get(k).listCalculs_);
-        // listOfServersStubs.remove(runnableThreads.get(k).count_);
-        // }
-        // // Si le serveur a reussi
-        // else {
-        // results = (results + runnableThreads.get(k).calculResults) % 4000;
-        // }
-        // k++;
-        // }
-
     }
 
     public int commuteCalculResults(ArrayList<Thread> threadList, ArrayList<RunnableThread> myRunnable,
@@ -281,6 +248,20 @@ public class Distributor {
 
     private void run(String fileName, String runningMode) {
         long startTime = System.currentTimeMillis();
+
+        if (System.getSecurityManager() == null) {
+            System.setSecurityManager(new SecurityManager());
+        }
+        // Lire fichier config pour obtenir les infos sur les serveurs
+        readServersConfigurations(SERVER_CONFIG_FILE);
+        try {
+            for (int counter = 0; counter < connectedServers.size(); counter++) {
+                ServerInterface rmiServerStub = loadServerStub(connectedServers.get(counter));
+                listOfServersStubs.add(rmiServerStub);
+            }
+        } catch (Exception e) {
+            System.out.println(e.toString());
+        }
 
         // Lire le fichier des operations
         readOperationsFile(fileName);
