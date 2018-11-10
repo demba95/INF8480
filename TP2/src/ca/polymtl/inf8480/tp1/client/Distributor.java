@@ -31,8 +31,8 @@ public class Distributor {
     // private ServerInterface[] listOfServersStubs = new ServerInterface[4]; // 4
     // servers stubs because 4 is the maxNumber
     // of servers used in this work
-    private ArrayList<ServerInterface> listOfServersStubs;// stub Servers;
-    private ArrayList<Server> connectedServers;// connected Servers
+    private ArrayList<ServerInterface> listOfServersStubs  = new ArrayList<ServerInterface>();// stub Servers;
+    private ArrayList<Server> connectedServers = new ArrayList<Server>(); // connected Servers
 
     public final String SERVER_CONFIG_FILE = "./config";
 
@@ -113,8 +113,6 @@ public class Distributor {
 
     public Distributor() {
         super();
-        connectedServers = new ArrayList<Server>();
-        listOfServersStubs = new ArrayList<ServerInterface>();
     }
 
     private ServerInterface loadServerStub(Server config) {
@@ -149,11 +147,13 @@ public class Distributor {
                 int capacity = (int) Integer.parseInt(chaine[1]);
                 int maliciousT = (int) Integer.parseInt(chaine[2]);
 
+                Server curServer = new Server(portNumber, capacity, maliciousT);
+
                 // Configurations config = new Configurations(m, portNumber, capacity);
-                connectedServers.add(new Server(portNumber, capacity, maliciousT));
+                connectedServers.add(curServer);
             }
             br.close();
-            System.out.println("Nombre de serveurs" + connectedServers.size());
+            System.out.println("Nombre de serveurs " + connectedServers.size());
         } catch (Exception e) {
             System.out.println(e.toString());
         }
@@ -181,6 +181,7 @@ public class Distributor {
         ArrayList<RunnableThread> runnableThreads = new ArrayList<RunnableThread>();
         ArrayList<Thread> simpleThreads = new ArrayList<Thread>();
         int nbConnectedServers = listOfServersStubs.size();
+        System.out.println("Nb connected = " + nbConnectedServers);
 
         int nbTacheUnit = listOfOperations.size() / nbConnectedServers; // nb de taches par serveur
         int results = 0;
@@ -192,6 +193,7 @@ public class Distributor {
             runnableThreads.clear();
             simpleThreads.clear();
             // Use a thread for each server
+            nbTacheUnit = listOfOperations.size() / nbConnectedServers; // nb de taches par serveur
             for (ServerInterface stubServer : listOfServersStubs) {
                 ArrayList<FileContent> opTasks = new ArrayList<FileContent>();
                 int offset = 0;

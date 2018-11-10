@@ -103,7 +103,7 @@ public class Server implements ServerInterface {
 			ServerInterface stub = (ServerInterface) UnicastRemoteObject.exportObject(this, 5030);
 			Registry registry = LocateRegistry.getRegistry(server.getPortNumber());
 			registry.rebind("server", stub);
-			System.out.println("Server ready on port" + server.getPortNumber() + "...");
+			System.out.println("Server ready on port " + server.getPortNumber());
 		} catch (ConnectException e) {
 			System.err.println("Impossible de se connecter au registre RMI. Est-ce que rmiregistry est lancé ?");
 			System.err.println();
