@@ -155,11 +155,10 @@ public class Distributor {
             connectedServers.clear(); // reset server list
             InputStream in = new FileInputStream(SERVER_CONFIG_FILE);
             InputStreamReader inRead = new InputStreamReader(in);
-            BufferedReader br = new BufferedReader(inRead);  
-            String ligne1 = br.readLine(); // ignore first line         
+            BufferedReader br = new BufferedReader(inRead);
+            String ligne1 = br.readLine(); // ignore first line
             String task;
-            while ((task = br.readLine()) != null) 
-            {
+            while ((task = br.readLine()) != null) {
                 System.out.println(" serveurs " + task);
                 String[] chaine = task.split("\t"); // divise ligne en 3 params separe par tabulation
                 int portNumber = (int) Integer.parseInt(chaine[0]);
@@ -185,15 +184,14 @@ public class Distributor {
             String filePath = "./" + fileName;
             BufferedReader br = new BufferedReader(new FileReader(filePath));
             String task;
-            
-            while((task = br.readLine()) != null)
-            {
+
+            while ((task = br.readLine()) != null) {
                 String[] chaine = task.split(" ");
-                int op = (int) Integer.parseInt(chaine[1]);        
+                int op = (int) Integer.parseInt(chaine[1]);
                 FileContent theTask = new FileContent(chaine[0], op);
                 listOfOperations.add(theTask);
             }
-            
+
             br.close();
         } catch (FileNotFoundException e) {
             System.err.println("Error opening file: " + e.getMessage());
@@ -211,7 +209,7 @@ public class Distributor {
         System.out.println("Nb connected stubs = " + nbConnectedServers);
         System.out.println("Nb connected NO stubs = " + connectedServers.size());
 
-        int nbTacheUnit = listOfOperations.size() / 2; // nb de taches par serveur
+        int nbTacheUnit = listOfOperations.size() / nbConnectedServers; // nb de taches par serveur
         int results = 0;
 
         while (remaining) {
@@ -285,7 +283,6 @@ public class Distributor {
         if (System.getSecurityManager() == null) {
             System.setSecurityManager(new SecurityManager());
         }
-
 
         // Lire fichier config pour obtenir les infos sur les serveurs
         readServersConfigurations();
