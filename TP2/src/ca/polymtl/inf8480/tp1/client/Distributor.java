@@ -17,13 +17,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Iterator;
 import java.util.Random;
+import javafx.util.*;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 
 import ca.polymtl.inf8480.tp1.shared.ServerInterface;
+import ca.polymtl.inf8480.tp1.LDAP.LDAP;
 import ca.polymtl.inf8480.tp1.server.Server;
-// import ca.polymtl.inf8480.tp1.shared.Configurations;
+import java.rmi.Naming;
 import ca.polymtl.inf8480.tp1.shared.FileContent;
+import ca.polymtl.inf8480.tp1.shared.LDAPInterface;
 
 public class Distributor {
     ArrayList<FileContent> listOfOperations;
@@ -31,10 +34,17 @@ public class Distributor {
     // private ServerInterface[] listOfServersStubs = new ServerInterface[4]; // 4
     // servers stubs because 4 is the maxNumber
     // of servers used in this work
-    private ArrayList<ServerInterface> listOfServersStubs  = new ArrayList<ServerInterface>();// stub Servers;
+    private ArrayList<ServerInterface> listOfServersStubs = new ArrayList<ServerInterface>();// stub Servers;
     private ArrayList<Server> connectedServers = new ArrayList<Server>(); // connected Servers
 
-    public final String SERVER_CONFIG_FILE = "./config";
+    private Pair<String, String> clientId_;
+    LDAPInterface service;
+
+    public static final String SERVER_CONFIG_FILE = "./config";
+    public static final String ADDRESS = "localhost";
+    public static final String RMIPROTOCOL = "rmi://";
+    public static final String ENDPOINT = "/auth";
+    public static final int LDAP_PORT = 5050;
 
     // Refs:
     // http://tutorials.jenkov.com/java-concurrency/creating-and-starting-threads.html
@@ -98,6 +108,8 @@ public class Distributor {
         String security = "";
         String fileName = "";
 
+        Pair<String, String> client = new Pair<>("demba", "bineta");
+
         if (args.length < 2) {
             System.out.println("You must define filename and running mode  ( secure or not)in arguments");
             System.exit(-1);
@@ -107,39 +119,44 @@ public class Distributor {
             fileName = args[0];
             security = args[1];
         }
-        Distributor distributor = new Distributor();
-        distributor.run(fileName, security);
+        Distributor distributor = new Distributor(client);
+        distributor.run(fileName, security, client);
     }
 
-    public Distributor() {
-        super();
+    public Distributor(Pair<String, String> clientId) {
+        this.clientId_ = clientId;
     }
 
     private ServerInterface loadServerStub(Server config) {
         ServerInterface stub = null;
 
         try {
-            Registry registry = LocateRegistry.getRegistry(config.getIpAddress(), config.getPortNumber());
+            System.setSecurityManager(new SecurityManager());
             // Ref: https://coderanch.com/t/209255/java/RMI-Naming-rebind
-            stub = (ServerInterface) registry.lookup("server");
+            stub = (ServerInterface) Naming.lookup("rmi://127.0.0.1:" + config.getPortNumber() + "/server");
         } catch (NotBoundException e) {
             System.out.println("Erreur: Le nom '" + e.getMessage() + "' n'est pas défini dans le registre.");
         } catch (AccessException e) {
             System.out.println("Erreur: " + e.getMessage());
-        } catch (RemoteException e) {
+        } catch (Exception e) {
             System.out.println("Erreur: " + e.getMessage());
         }
 
         return stub;
     }
 
+    public Distributor() {
+        super();
+    }
+
     public void readServersConfigurations(String fileName) {
         // file format: Port Capacity(q) Malicious(m)
         try {
+            connectedServers.clear(); // reset server list
             InputStream in = new FileInputStream(fileName);
             InputStreamReader inRead = new InputStreamReader(in);
             BufferedReader br = new BufferedReader(inRead);
-            connectedServers.clear(); // reset server list
+
             // String titles = br.readLine(); // line to be ignored for titles
             for (String task; (task = br.readLine()) != null;) {
                 String[] chaine = task.split("\t"); // divise ligne en 3 params separe par tabulation
@@ -148,8 +165,6 @@ public class Distributor {
                 int maliciousT = (int) Integer.parseInt(chaine[2]);
 
                 Server curServer = new Server(portNumber, capacity, maliciousT);
-
-                // Configurations config = new Configurations(m, portNumber, capacity);
                 connectedServers.add(curServer);
             }
             br.close();
@@ -182,6 +197,7 @@ public class Distributor {
         ArrayList<Thread> simpleThreads = new ArrayList<Thread>();
         int nbConnectedServers = listOfServersStubs.size();
         System.out.println("Nb connected = " + nbConnectedServers);
+        System.out.println("Nb Operations = " + listOfOperations.size());
 
         int nbTacheUnit = listOfOperations.size() / nbConnectedServers; // nb de taches par serveur
         int results = 0;
@@ -248,7 +264,7 @@ public class Distributor {
 
     }
 
-    private void run(String fileName, String runningMode) {
+    private void run(String fileName, String runningMode, Pair<String, String> client) {
         long startTime = System.currentTimeMillis();
 
         if (System.getSecurityManager() == null) {
@@ -256,6 +272,15 @@ public class Distributor {
         }
         // Lire fichier config pour obtenir les infos sur les serveurs
         readServersConfigurations(SERVER_CONFIG_FILE);
+
+        // this.service = loadLDAPStub();
+        try {
+            loadLDAPStub().registerClient(client.getKey(), client.getValue());
+
+        } catch (Exception e) {
+            // TODO: handle exception
+        }
+
         try {
             for (int counter = 0; counter < connectedServers.size(); counter++) {
                 ServerInterface rmiServerStub = loadServerStub(connectedServers.get(counter));
@@ -276,6 +301,26 @@ public class Distributor {
         }
         // Calculer et afficher temps execution operation
         System.out.println("Elapsed Time: " + (System.currentTimeMillis() - startTime) + " ms");
+    }
+
+    private LDAPInterface loadLDAPStub() {
+        LDAPInterface stub = null;
+        try {
+            System.setSecurityManager(new SecurityManager());
+            // Ref: https://coderanch.com/t/209255/java/RMI-Naming-rebind
+            stub = (LDAPInterface) Naming.lookup(RMIPROTOCOL + ADDRESS + ":" + LDAP_PORT + ENDPOINT);
+            // Registry registry = LocateRegistry.getRegistry(config.getIpAddress(),
+            // config.getPortNumber());
+        } catch (NotBoundException e) {
+            System.out.println("Erreur: Le nom '" + e.getMessage() + "' n'est pas défini dans le registre.");
+        } catch (AccessException e) {
+            System.out.println("Erreur: " + e.getMessage());
+        } catch (Exception e) {
+            System.out.println("Erreur: " + e.getMessage());
+        }
+
+        return stub;
+
     }
 
 }
