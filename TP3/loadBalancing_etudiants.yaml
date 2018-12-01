@@ -51,10 +51,10 @@ parameters:
       - allowed_pattern: "[A-Z]+[a-zA-Z0-9]*"
         description: Password must start with an uppercase character
 
-  # external_network:
-  #   type: string
-  #   description: A Neutron external network
-  #   default: ext-net
+  external_network:
+    type: string
+    description: A Neutron external network
+    default: ext-net
 
 resources:
   server_nodes:
@@ -90,7 +90,7 @@ resources:
           subnet: {get_param: subnet_name}
           lb_method: ROUND_ROBIN
           vip:
-            protocol_port: 80
+            protocol_port: 8080
 
   myloadbalancer:
       type: OS::Neutron::LoadBalancer
@@ -106,14 +106,14 @@ resources:
       #A completer
         type: HTTP
         delay: 15
-        max_retries: 2
+        max_retries: 1
         timeout: 5	
 
-  # lb_floating:
-  #   type: OS::Neutron::FloatingIP
-  #   properties:
-  #     floating_network: {get_param: external_network}
-  #     port_id: {get_attr: [mypool, vip, port_id]}
+  lb_floating:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: {get_param: external_network}
+      port_id: {get_attr: [mypool, vip, port_id]}
 
 
 outputs:
