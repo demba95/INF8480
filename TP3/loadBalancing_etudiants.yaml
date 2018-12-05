@@ -2,60 +2,6 @@ heat_template_version: 2014-10-16
 
 description: A template to deploy a load balanced web server
 
-parameters:
-
-  key_name:
-    type: string
-    description: Name of an existing key pair to use for the server
-    default: bineta-demba
-
-  image:
-    type: string
-    description: Image utilisee pour les serveurs
-    #A completer
-    default: INF4410-Ubuntu-trusty-mini
-
-  flavor:
-    type: string
-    description: Flavor utilisee par les serveurs
-    #A completer
-    default: INF4410-mini
-
-  subnet_name:
-    type: string
-    description: Sous-reseau dans lequel le load balancer sera situe
-    #A completer
-    default: inf4410-subnet
-
-    # Vous pouvez ajouter d'autres paramètres
-    # Il faut bien définir les descriptions, les valeurs par default et les contraintes
-
-  db_port:
-    type: number
-    description: Database port number
-    default: 8080
-    constraints:
-      - range: { min: 8000, max: 9000 }
-        description: Port number must be between 1000 and 9999
-
-  admin_pass:
-    type: string
-    description: Admin password
-    default: Adminbd
-    hidden: true
-    constraints:
-      - length: { min: 6, max: 8 }
-        description: Password length must be between 6 and 8 characters
-      - allowed_pattern: "[a-zA-Z0-9]+"
-        description: Password must consist of characters and numbers only
-      - allowed_pattern: "[A-Z]+[a-zA-Z0-9]*"
-        description: Password must start with an uppercase character
-
-  external_network:
-    type: string
-    description: A Neutron external network
-    default: ext-net
-
 resources:
   server_nodes:
       type: OS::Heat::ResourceGroup
@@ -66,20 +12,14 @@ resources:
           type: OS::Nova::Server
           properties:
               name: Server_%index%
-              key_name: { get_param: key_name }
-              image: { get_param: image }
-              flavor: { get_param: flavor }
+              image: INF4410-Ubuntu-trusty-mini
+              flavor: INF4410-mini
               user_data_format: RAW
               networks: [{ "network": inf4410-net}]
-              user_data:
-                  str_replace:
-                    template: |
+              user_data: |
                       #!/bin/bash
                       wget https://raw.githubusercontent.com/houssemmh/INF4410-TP3/master/server.py
-                      python server.py
-                    params:
-                      db_port: { get_param: db_port }
-
+                      python server.py &
 
   mypool:
       type: OS::Neutron::Pool
@@ -87,7 +27,7 @@ resources:
       properties:
           protocol: HTTP
           monitors: [{get_resource: mymonitor}]
-          subnet: {get_param: subnet_name}
+          subnet: inf4410-subnet
           lb_method: ROUND_ROBIN
           vip:
             protocol_port: 8080
@@ -103,7 +43,6 @@ resources:
   mymonitor:
       type: OS::Neutron::HealthMonitor
       properties:
-      #A completer
         type: HTTP
         delay: 15
         max_retries: 1
@@ -112,7 +51,7 @@ resources:
   lb_floating:
     type: OS::Neutron::FloatingIP
     properties:
-      floating_network: {get_param: external_network}
+      floating_network: ext-net
       port_id: {get_attr: [mypool, vip, port_id]}
 
 
